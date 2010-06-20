@@ -11,14 +11,6 @@
 
 #define VERSION 	1.02
 
-enum
-{
-	MSG_ERROR=-2,
-	MSG_WARN,
-	MSG_INFO,
-	MSG_DETAIL,
-	MSG_DEBUG
-};
 
 struct wg_config
 {

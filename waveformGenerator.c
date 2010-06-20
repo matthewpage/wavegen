@@ -18,21 +18,6 @@
 int debugLevel = LOG_DEBUG+1;
 float peakCoEfficient;
 
-void debug(int level, const char * template, ...)
-{
-	va_list ap;
-
-	va_start (ap, template);
-	if (debugLevel < level) return;
-
-	vfprintf(stderr, template, ap);
-	fprintf(stderr,"\n");
-	fflush(stderr);
-
-	va_end (ap);
-	return;
-}
-
 static void defaultConfig()
 {
 	gConfig.inputFile		= "";
@@ -138,20 +123,6 @@ static int readArguments(int argc, char** argv)
 	debug(LOG_INFO, "seconds per file: %d", gConfig.secondsPerFile);
 
 	return 0;
-}
-
-/*
- * Log
- */
-void log_message(int type, const char *format, ...)
-{
-	va_list args;
-	va_start( args, format );
-	if (type < debugLevel)
-	{
-		vfprintf(stderr, format, args );
-	}
-	va_end( args );
 }
 
 /*
@@ -329,3 +300,20 @@ void close_pcm(FILE *fp)
 	fclose(fp);
 }
 
+/*
+ * debug
+ */
+void debug(int level, const char * template, ...)
+{
+	va_list ap;
+
+	va_start (ap, template);
+	if (debugLevel < level) return;
+
+	vfprintf(stderr, template, ap);
+	fprintf(stderr,"\n");
+	fflush(stderr);
+
+	va_end (ap);
+	return;
+}
