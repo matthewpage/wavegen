@@ -7,6 +7,7 @@
 #include 	<stdlib.h>
 #include 	<stdio.h>
 #include	<stdbool.h>
+#include	<syslog.h>
 #include	<time.h>
 #include	<gd.h>
 #include	<gdfonts.h>
@@ -23,6 +24,7 @@ int waveformColour;
 int textColour;
 int currentFile = 0;
 int currentPixel = 0;
+bool imageHasChanged = false;
 gdImagePtr imageHandle;
 gdFontPtr fontHandle;
 
@@ -73,6 +75,8 @@ void drawTimeLine()
 		gdImageString(imageHandle, fontHandle, position - 24, textHeight, newTime, textColour);
 		incrementTime(secondsPerTick);
 	}
+
+	imageHasChanged = true;
 }
 
 /*
@@ -83,25 +87,33 @@ void updateImageFile(bool finished)
 	char imageFileName[256];
 	sprintf(imageFileName, "%s%s%d.grow.png", gConfig.outputPath, gConfig.baseFileName, currentFile);
 
-	log_message(MSG_DEBUG, "updateImageFile | Writing image file: %s\n", imageFileName);
-
-	FILE *fpimg;
-	fpimg = fopen(imageFileName, "wb");
-
-	if (fpimg == NULL)
+	if (imageHasChanged == true)
 	{
-		log_message(MSG_ERROR, "updateImageFile | Can't open file for output: %s\n", imageFileName);
-		exit(1);
-	}
+		debug(LOG_DEBUG, "Writing image file: %s", imageFileName);
+		FILE *fpimg;
+		fpimg = fopen(imageFileName, "wb");
 
-	gdImagePng(imageHandle, fpimg);
-	fclose(fpimg);
+		if (fpimg == NULL)
+		{
+			debug(LOG_ALERT, "Can't open file for output: %s", imageFileName);
+			exit(1);
+		}
+
+		gdImagePng(imageHandle, fpimg);
+		fclose(fpimg);
+
+		imageHasChanged = false;
+	}
+	else
+	{
+		debug(LOG_DEBUG, "Image hasn't changed, so not writing");
+	}
 
 	if (finished == true)
 	{
 		char newFileName[256];
 		sprintf(newFileName, "%s%s%d.png", gConfig.outputPath, gConfig.baseFileName, currentFile);
-		log_message(MSG_DEBUG, "updateImageFile | Renaming image file: %s\n", newFileName);
+		debug(LOG_DEBUG, "Renaming image file: %s", newFileName);
 		rename(imageFileName, newFileName);
 	}
 }
@@ -111,7 +123,7 @@ void updateImageFile(bool finished)
  */
 void startImageFile()
 {
-	log_message(MSG_DEBUG, "startImageFile | Starting a new image file\n");
+	debug(LOG_DEBUG, "Starting a new image file");
 
 	imageWidth = gConfig.peaksPerSecond * gConfig.secondsPerFile;	// one minute per file
 
@@ -129,7 +141,7 @@ void startImageFile()
  */
 void endImageFile()
 {
-	log_message(MSG_DEBUG, "endImageFile | Closing image file\n");
+	debug(LOG_DEBUG, "Closing image file");
 
 	updateImageFile(true);
 	currentFile ++;
@@ -159,6 +171,8 @@ void drawMonoPeak(peaks_t peaks)
 	{
 		endImageFile();
 	}
+
+	imageHasChanged = true;
 }
 
 /*
@@ -192,5 +206,7 @@ void drawStereoPeak(peaks_t left, peaks_t right)
 	{
 		endImageFile();
 	}
+
+	imageHasChanged = true;
 }
 

@@ -30,6 +30,7 @@ struct wg_config
 	int sampleRate;
 	int channels;
 	int waitTime;
+	int timesToCheck;
 
 	long fileStartOffset;
 
@@ -49,7 +50,6 @@ struct peaks_t
 }
 typedef peaks_t;
 
-
-void log_message( int , const char *, ... );
+void debug(int , const char * , ...);
 
 #endif /* WAVEFORMGENERATOR_H_ */

@@ -2,6 +2,7 @@
  * waveformGenerator.c
  *
  *  Created on: 13 May 2010
+ *  Last modified: 20 June 2010
  *  Author: Matthew Page
  */
 #include	<unistd.h>
@@ -9,17 +10,29 @@
 #include	<stdio.h>
 #include	<stdbool.h>
 #include 	<stdarg.h>
-#include	<time.h>
-#include	<gd.h>
-#include	<gdfonts.h>
+#include	<syslog.h>
 
 #include	"waveformGenerator.h"
 #include	"pcm.h"
 #include	"waveImage.h"
 
-int verbosity = MSG_DEBUG+1;
-
+int debugLevel = LOG_DEBUG+1;
 float peakCoEfficient;
+
+void debug(int level, const char * template, ...)
+{
+	va_list ap;
+
+	va_start (ap, template);
+	if (debugLevel < level) return;
+
+	vfprintf(stderr, template, ap);
+	fprintf(stderr,"\n");
+	fflush(stderr);
+
+	va_end (ap);
+	return;
+}
 
 static void defaultConfig()
 {
@@ -29,6 +42,11 @@ static void defaultConfig()
 	gConfig.startTime 		= "00:00:00";
 	gConfig.peaksPerSecond 	= 16;
 	gConfig.secondsPerFile	= 300;
+	gConfig.sampleRate		= 44100;
+	gConfig.channels		= 1;
+	gConfig.fileStartOffset = 0;
+	gConfig.waitTime		= 1;
+	gConfig.timesToCheck	= 5;
 }
 
 static int readArguments(int argc, char** argv)
@@ -62,6 +80,9 @@ static int readArguments(int argc, char** argv)
 			case 'w':
 				gConfig.waitTime = atoi(argv[++opts]);
 				break;
+			case 'n':
+				gConfig.timesToCheck = atoi(argv[++opts]);
+				break;
 			case 't':
 				gConfig.startTime = argv[++opts];
 				break;
@@ -74,13 +95,13 @@ static int readArguments(int argc, char** argv)
 
 	if (gConfig.inputFile == NULL)
 	{
-		log_message(MSG_WARN, "You must pass an input file. Use -i <input file>\n");
+		debug(LOG_ALERT, "You must pass an input file. Use -i <input file>");
 		return 1;
 	}
 
 	if (gConfig.outputPath == NULL)
 	{
-		log_message(MSG_WARN, "You must pass an output file. Use -o <output file>\n");
+		debug(LOG_ALERT, "You must pass an output file. Use -o <output file>");
 		return 1;
 	}
 
@@ -106,16 +127,16 @@ static int readArguments(int argc, char** argv)
 
 	peakCoEfficient = (float) gConfig.peaksPerSecond / (float) gConfig.sampleRate;
 
-	log_message(MSG_INFO, "output path: %s\n", gConfig.outputPath);
-	log_message(MSG_INFO, "input file: %s\n", gConfig.inputFile);
-	log_message(MSG_INFO, "base file name: %s\n", gConfig.baseFileName);
-	log_message(MSG_INFO, "file offset: %d\n", gConfig.fileStartOffset);
-	log_message(MSG_INFO, "sample rate: %d\n", gConfig.sampleRate);
-	log_message(MSG_INFO, "peaks per second: %d\n", gConfig.peaksPerSecond);
-	log_message(MSG_INFO, "channels: %d\n", gConfig.channels);
-	log_message(MSG_INFO, "wait time: %d\n", gConfig.waitTime);
-	log_message(MSG_INFO, "start time: %s\n", gConfig.startTime);
-	log_message(MSG_INFO, "seconds per file: %d\n", gConfig.secondsPerFile);
+	debug(LOG_INFO, "output path: %s", gConfig.outputPath);
+	debug(LOG_INFO, "input file: %s", gConfig.inputFile);
+	debug(LOG_INFO, "base file name: %s", gConfig.baseFileName);
+	debug(LOG_INFO, "file offset: %d", gConfig.fileStartOffset);
+	debug(LOG_INFO, "sample rate: %d", gConfig.sampleRate);
+	debug(LOG_INFO, "peaks per second: %d", gConfig.peaksPerSecond);
+	debug(LOG_INFO, "channels: %d", gConfig.channels);
+	debug(LOG_INFO, "wait time: %d", gConfig.waitTime);
+	debug(LOG_INFO, "start time: %s", gConfig.startTime);
+	debug(LOG_INFO, "seconds per file: %d", gConfig.secondsPerFile);
 
 	return 0;
 }
@@ -127,7 +148,7 @@ void log_message(int type, const char *format, ...)
 {
 	va_list args;
 	va_start( args, format );
-	if (type < verbosity)
+	if (type < debugLevel)
 	{
 		vfprintf(stderr, format, args );
 	}
@@ -138,7 +159,7 @@ void log_message(int type, const char *format, ...)
  * Main Function
  */
 int main(int argc, char** argv) {
-	log_message(MSG_INFO, "waveformGenerator v%02.02f (c)Matthew Page, 2010\n", VERSION);
+	fprintf(stdout, "waveformGenerator v%02.02f (c)Matthew Page, 2010\n", VERSION);
 
 	defaultConfig();
 
@@ -146,7 +167,7 @@ int main(int argc, char** argv) {
 	if (result != 0)
 	{
 		// didn't get all the details we need so exiting
-		log_message(MSG_INFO, "Exiting due to lack of information.");
+		debug(LOG_ALERT, "Exiting due to lack of information.");
 		return 1;
 	}
 
@@ -165,6 +186,7 @@ int main(int argc, char** argv) {
 	/*
 	 * Initialise file access
 	 */
+	int checkForDataCount = 0;
 	bool continueReading = true;
 	bool reachedEndOfFile = false;
 	long filePosition = 0;
@@ -183,9 +205,8 @@ int main(int argc, char** argv) {
 		samplesRead = fread(sampleBuffer, 2, sizeof(sampleBuffer) / 2, fpi);
 		if (ferror(fpi))
 		{
-			log_message(MSG_ERROR, "Error reading from file\n");
+			debug(LOG_ALERT, "Error reading from file");
 		}
-		//printf("bytes read = %d\n", samplesRead);
 
 		if (samplesRead > 0)
 		{
@@ -237,31 +258,38 @@ int main(int argc, char** argv) {
 			// reset reachedEndOfFile flag as we obviously haven't because we've just read some data
 			if (reachedEndOfFile == true)
 			{
-				log_message(MSG_INFO, "File is still growing...\n");
+				debug(LOG_DEBUG, "File is still growing...");
 				reachedEndOfFile = false;
+				checkForDataCount = 0;
 			}
 		}
 		else
 		{
+			checkForDataCount++;
+
 			if (reachedEndOfFile == true)
 			{
 				// we've been here before so the file has stopped growing, so give up and finish
 				continueReading = false;
-				log_message(MSG_INFO, "File has stopped growing\n");
+				debug(LOG_DEBUG, "File has stopped growing");
 			}
 			else
 			{
 				// wait for a while to see if the file is growing
 				updateImageFile(false);
 
-				log_message(MSG_INFO, "Waiting to see if file is still growing\n");
-				reachedEndOfFile = true;
+				debug(LOG_DEBUG, "Waiting to see if file is still growing #%d", checkForDataCount);
 				filePosition = ftell(fpi);
 				sleep(gConfig.waitTime);
 
 				close_pcm(fpi);
 				fpi = open_pcm(gConfig.inputFile);
 				seek_pcm(fpi, filePosition);
+
+				if (checkForDataCount >= gConfig.timesToCheck)
+				{
+					reachedEndOfFile = true;
+				}
 			}
 		}
 	}
@@ -270,7 +298,7 @@ int main(int argc, char** argv) {
 	endImageFile();
 	close_pcm(fpi);
 
-	log_message(MSG_INFO, "Complete");
+	debug(LOG_DEBUG, "Complete");
 
 	return 0;
 }
