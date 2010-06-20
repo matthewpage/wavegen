@@ -52,4 +52,8 @@ typedef peaks_t;
 
 void debug(int , const char * , ...);
 
+FILE* open_pcm(char *filename);
+void seek_pcm(FILE *fp, long pos);
+void close_pcm(FILE *fp);
+
 #endif /* WAVEFORMGENERATOR_H_ */

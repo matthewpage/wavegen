@@ -15,7 +15,7 @@ FILE* open_pcm(char *filename)
 	fp = fopen(filename, "rb");
 	if (fp == NULL)
 	{
-		log_message(MSG_ERROR, "Can't open input file %s\n", filename);
+		debug(LOG_ALERT, "Can't open input file %s", filename);
 		exit(1);
 	}
 
@@ -27,7 +27,7 @@ void seek_pcm(FILE *fp, long pos)
 	fseek(fp, pos, 0);
 	if (ferror(fp))
 	{
-		log_message(MSG_ERROR, "Error seeking within file\n");
+		debug(LOG_ALERT, "Error seeking within file");
 	}
 }
 
