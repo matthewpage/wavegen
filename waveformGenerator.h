@@ -2,13 +2,14 @@
  * waveformGenerator.h
  *
  *  Created on: 22 May 2010
- *      Author: matthew
+ *  Last modified: 20 June 2010
+ *  Author: Matthew Page
  */
 
 #ifndef WAVEFORMGENERATOR_H_
 #define WAVEFORMGENERATOR_H_
 
-#define VERSION 	1.01
+#define VERSION 	1.02
 
 enum
 {
@@ -19,14 +20,34 @@ enum
 	MSG_DEBUG
 };
 
+struct wg_config
+{
+	char* inputFile;
+	char* outputPath;
+	char* baseFileName;
+	char* startTime;
+
+	int sampleRate;
+	int channels;
+	int waitTime;
+
+	long fileStartOffset;
+
+	int peaksPerSecond;
+	int secondsPerFile;
+}
+typedef wg_config;
+wg_config gConfig;
+
 /*
  * structure to hold peak data
  */
-typedef struct peaks_t
+struct peaks_t
 {
 	short high;
 	short low;
-} peaks_t;
+}
+typedef peaks_t;
 
 
 void log_message( int , const char *, ... );

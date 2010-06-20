@@ -19,19 +19,17 @@
 
 int verbosity = MSG_DEBUG+1;
 
-extern char* outputPath;
-extern char* baseFileName;
-extern char* startTime;
-extern int peaksPerSecond;
-extern int secondsPerFile;
-
-char* inputFile;
-int waitTime = 10;
-int fileOffset = 0;
-int sampleRate = 44100;
-int channels = 1;
 float peakCoEfficient;
 
+static void defaultConfig()
+{
+	gConfig.inputFile		= "";
+	gConfig.outputPath 		= "";
+	gConfig.baseFileName 	= "waveform_";
+	gConfig.startTime 		= "00:00:00";
+	gConfig.peaksPerSecond 	= 16;
+	gConfig.secondsPerFile	= 300;
+}
 
 static int readArguments(int argc, char** argv)
 {
@@ -41,83 +39,83 @@ static int readArguments(int argc, char** argv)
 		if (argv[opts][0] == '-') {
 			switch (argv[opts][1]) {
 			case 'i':
-				inputFile = argv[++opts];
+				gConfig.inputFile = argv[++opts];
 				break;
 			case 'o':
-				outputPath = argv[++opts];
+				gConfig.outputPath = argv[++opts];
 				break;
 			case 'f':
-				baseFileName = argv[++opts];
+				gConfig.baseFileName = argv[++opts];
 				break;
 			case 'r':
-				sampleRate = atoi(argv[++opts]);
+				gConfig.sampleRate = atoi(argv[++opts]);
 				break;
 			case 'p':
-				peaksPerSecond = atoi(argv[++opts]);
+				gConfig.peaksPerSecond = atoi(argv[++opts]);
 				break;
 			case 's':
-				fileOffset = atoi(argv[++opts]);
+				gConfig.fileStartOffset = atol(argv[++opts]);
 				break;
 			case 'c':
-				channels = atoi(argv[++opts]);
+				gConfig.channels = atoi(argv[++opts]);
 				break;
 			case 'w':
-				waitTime = atoi(argv[++opts]);
+				gConfig.waitTime = atoi(argv[++opts]);
 				break;
 			case 't':
-				startTime = argv[++opts];
+				gConfig.startTime = argv[++opts];
 				break;
 			case 'l':
-				secondsPerFile = atoi(argv[++opts]);
+				gConfig.secondsPerFile = atoi(argv[++opts]);
 				break;
 			}
 		}
 	}
 
-	if (inputFile == NULL)
+	if (gConfig.inputFile == NULL)
 	{
 		log_message(MSG_WARN, "You must pass an input file. Use -i <input file>\n");
 		return 1;
 	}
 
-	if (outputPath == NULL)
+	if (gConfig.outputPath == NULL)
 	{
 		log_message(MSG_WARN, "You must pass an output file. Use -o <output file>\n");
 		return 1;
 	}
 
-	switch (channels)
+	switch (gConfig.channels)
 	{
 		case 2:
-			channels = 2;
+			gConfig.channels = 2;
 			break;
 		default:
-			channels = 1;
+			gConfig.channels = 1;
 			break;
 	}
 
-	switch (sampleRate)
+	switch (gConfig.sampleRate)
 	{
 		case 48000:
-			sampleRate = 48000;
+			gConfig.sampleRate = 48000;
 			break;
 		default:
-			sampleRate = 44100;
+			gConfig.sampleRate = 44100;
 			break;
 	}
 
-	peakCoEfficient = (float) peaksPerSecond / (float) sampleRate;
+	peakCoEfficient = (float) gConfig.peaksPerSecond / (float) gConfig.sampleRate;
 
-	log_message(MSG_INFO, "output path: %s\n", outputPath);
-	log_message(MSG_INFO, "input file: %s\n", inputFile);
-	log_message(MSG_INFO, "base file name: %s\n", baseFileName);
-	log_message(MSG_INFO, "file offset: %d\n", fileOffset);
-	log_message(MSG_INFO, "sample rate: %d\n", sampleRate);
-	log_message(MSG_INFO, "peaks per second: %d\n", peaksPerSecond);
-	log_message(MSG_INFO, "channels: %d\n", channels);
-	log_message(MSG_INFO, "wait time: %d\n", waitTime);
-	log_message(MSG_INFO, "start time: %s\n", startTime);
-	log_message(MSG_INFO, "seconds per file: %d\n", secondsPerFile);
+	log_message(MSG_INFO, "output path: %s\n", gConfig.outputPath);
+	log_message(MSG_INFO, "input file: %s\n", gConfig.inputFile);
+	log_message(MSG_INFO, "base file name: %s\n", gConfig.baseFileName);
+	log_message(MSG_INFO, "file offset: %d\n", gConfig.fileStartOffset);
+	log_message(MSG_INFO, "sample rate: %d\n", gConfig.sampleRate);
+	log_message(MSG_INFO, "peaks per second: %d\n", gConfig.peaksPerSecond);
+	log_message(MSG_INFO, "channels: %d\n", gConfig.channels);
+	log_message(MSG_INFO, "wait time: %d\n", gConfig.waitTime);
+	log_message(MSG_INFO, "start time: %s\n", gConfig.startTime);
+	log_message(MSG_INFO, "seconds per file: %d\n", gConfig.secondsPerFile);
 
 	return 0;
 }
@@ -142,6 +140,8 @@ void log_message(int type, const char *format, ...)
 int main(int argc, char** argv) {
 	log_message(MSG_INFO, "waveformGenerator v%02.02f (c)Matthew Page, 2010\n", VERSION);
 
+	defaultConfig();
+
 	int result = readArguments(argc, argv);
 	if (result != 0)
 	{
@@ -150,7 +150,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	initialiseTime(startTime);
+	initialiseTime(gConfig.startTime);
 
 	/*
 	 * Initialise sample variables
@@ -170,8 +170,8 @@ int main(int argc, char** argv) {
 	long filePosition = 0;
 	FILE *fpi;
 
-	fpi = open_pcm(inputFile);
-	seek_pcm(fpi, fileOffset);
+	fpi = open_pcm(gConfig.inputFile);
+	seek_pcm(fpi, gConfig.fileStartOffset);
 
 	startImageFile();
 
@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
 
 				if ((sampleCount * peakCoEfficient) >= 1) {
 
-					if (channels == 2)
+					if (gConfig.channels == 2)
 					{
 						drawStereoPeak(peaks[0], peaks[1]);
 					}
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
 					sampleCount = 0;
 				}
 
-				if (channels == 2)
+				if (gConfig.channels == 2)
 				{
 					if (currentChannel == 0)
 					{
@@ -257,10 +257,10 @@ int main(int argc, char** argv) {
 				log_message(MSG_INFO, "Waiting to see if file is still growing\n");
 				reachedEndOfFile = true;
 				filePosition = ftell(fpi);
-				sleep(waitTime);
+				sleep(gConfig.waitTime);
 
 				close_pcm(fpi);
-				fpi = open_pcm(inputFile);
+				fpi = open_pcm(gConfig.inputFile);
 				seek_pcm(fpi, filePosition);
 			}
 		}

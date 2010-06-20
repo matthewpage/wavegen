@@ -14,12 +14,6 @@
 #include 	"waveformGenerator.h"
 #include	"waveImage.h"
 
-char* outputPath;
-char* baseFileName = "waveform_";
-char* startTime = "00:00:00";
-int peaksPerSecond = 16;
-int secondsPerFile = 300;
-
 struct tm * currentTime;
 int imageHeight = 175;
 int imageWidth = 480;
@@ -66,7 +60,7 @@ void drawTimeLine()
 {
 	int lineHeight = imageHeight - 10;
 	int textHeight = imageHeight - 22;
-	int pixelsPerTick = peaksPerSecond * secondsPerTick;
+	int pixelsPerTick = gConfig.peaksPerSecond * secondsPerTick;
 
 	int i;
 	for (i = 0; i < (imageWidth + pixelsPerTick); i += pixelsPerTick)
@@ -87,7 +81,7 @@ void drawTimeLine()
 void updateImageFile(bool finished)
 {
 	char imageFileName[256];
-	sprintf(imageFileName, "%s%s%d.grow.png", outputPath, baseFileName, currentFile);
+	sprintf(imageFileName, "%s%s%d.grow.png", gConfig.outputPath, gConfig.baseFileName, currentFile);
 
 	log_message(MSG_DEBUG, "updateImageFile | Writing image file: %s\n", imageFileName);
 
@@ -106,7 +100,7 @@ void updateImageFile(bool finished)
 	if (finished == true)
 	{
 		char newFileName[256];
-		sprintf(newFileName, "%s%s%d.png", outputPath, baseFileName, currentFile);
+		sprintf(newFileName, "%s%s%d.png", gConfig.outputPath, gConfig.baseFileName, currentFile);
 		log_message(MSG_DEBUG, "updateImageFile | Renaming image file: %s\n", newFileName);
 		rename(imageFileName, newFileName);
 	}
@@ -119,7 +113,7 @@ void startImageFile()
 {
 	log_message(MSG_DEBUG, "startImageFile | Starting a new image file\n");
 
-	imageWidth = peaksPerSecond * secondsPerFile;	// one minute per file
+	imageWidth = gConfig.peaksPerSecond * gConfig.secondsPerFile;	// one minute per file
 
 	imageHandle = gdImageCreateTrueColor(imageWidth, imageHeight);
 	fontHandle = gdFontGetSmall();
