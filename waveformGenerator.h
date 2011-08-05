@@ -2,14 +2,14 @@
  * waveformGenerator.h
  *
  *  Created on: 22 May 2010
- *  Last modified: 20 June 2010
+ *  Last modified: 05 August 2011
  *  Author: Matthew Page
  */
 
 #ifndef WAVEFORMGENERATOR_H_
 #define WAVEFORMGENERATOR_H_
 
-#define VERSION 	1.02
+#define VERSION 	1.03
 
 
 struct wg_config

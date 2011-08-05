@@ -2,7 +2,7 @@
  * waveformGenerator.c
  *
  *  Created on: 13 May 2010
- *  Last modified: 20 June 2010
+ *  Last modified: 05 August 2011
  *  Author: Matthew Page
  */
 #include	<unistd.h>
@@ -129,7 +129,7 @@ static int readArguments(int argc, char** argv)
  * Main Function
  */
 int main(int argc, char** argv) {
-	fprintf(stdout, "waveformGenerator v%02.02f (c)Matthew Page, 2010\n", VERSION);
+	fprintf(stderr, "waveformGenerator v%02.02f (c)Matthew Page, 2010-11\n", VERSION);
 
 	defaultConfig();
 
