@@ -2,7 +2,7 @@
  * waveformGenerator.c
  *
  *  Created on: 13 May 2010
- *  Last modified: 05 August 2011
+ *  Last modified: 27 Nov 2013
  *  Author: Matthew Page
  */
 #include	<unistd.h>
@@ -160,11 +160,18 @@ int main(int argc, char** argv) {
 	bool continueReading = true;
 	bool reachedEndOfFile = false;
 	long filePosition = 0;
-	FILE *fpi;
+	FILE *fppcm;
+	FILE *fppeak;
 
-	fpi = open_pcm(gConfig.inputFile);
-	seek_pcm(fpi, gConfig.fileStartOffset);
-
+	// open input pcm file
+	fppcm = open_pcm(gConfig.inputFile);
+	seek_pcm(fppcm, gConfig.fileStartOffset);
+	
+	// open output peak file
+	char peakFileName[256];
+	sprintf(peakFileName, "%s%s.lev", gConfig.outputPath, gConfig.baseFileName);
+	fppeak = open_peak(peakFileName);
+	
 	startImageFile();
 
 	/*
@@ -172,8 +179,8 @@ int main(int argc, char** argv) {
 	 */
 	while (continueReading == true)
 	{
-		samplesRead = fread(sampleBuffer, 2, sizeof(sampleBuffer) / 2, fpi);
-		if (ferror(fpi))
+		samplesRead = fread(sampleBuffer, 2, sizeof(sampleBuffer) / 2, fppcm);
+		if (ferror(fppcm))
 		{
 			debug(LOG_ALERT, "Error reading from file");
 		}
@@ -183,20 +190,30 @@ int main(int argc, char** argv) {
 			int i;
 			for (i = 0; i < samplesRead; i++) {
 				currentSample = sampleBuffer[i];
-				if (peaks[currentChannel].high > currentSample)
-					peaks[currentChannel].high = currentSample;
-				if (peaks[currentChannel].low < currentSample)
-					peaks[currentChannel].low = currentSample;
+				if (peaks[currentChannel].high > currentSample) peaks[currentChannel].high = currentSample;
+				if (peaks[currentChannel].low < currentSample) peaks[currentChannel].low = currentSample;
 
 				if ((sampleCount * peakCoEfficient) >= 1) {
 
 					if (gConfig.channels == 2)
 					{
 						drawStereoPeak(peaks[0], peaks[1]);
+						
+						short w[4];
+						w[0] = peaks[0].high;
+						w[1] = peaks[0].low;
+						w[2] = peaks[1].high;
+						w[3] = peaks[1].low;
+						fwrite(&w, sizeof(short), 4, fppeak); 
 					}
 					else
 					{
 						drawMonoPeak(peaks[0]);
+						
+						short w[2];
+						w[0] = peaks[0].high;
+						w[1] = peaks[0].low;
+						fwrite(&w, sizeof(short), 2, fppeak);
 					}
 
 					peaks[0].low = 0;
@@ -249,12 +266,12 @@ int main(int argc, char** argv) {
 				updateImageFile(false);
 
 				debug(LOG_DEBUG, "Waiting to see if file is still growing #%d", checkForDataCount);
-				filePosition = ftell(fpi);
+				filePosition = ftell(fppcm);
 				sleep(gConfig.waitTime);
 
-				close_pcm(fpi);
-				fpi = open_pcm(gConfig.inputFile);
-				seek_pcm(fpi, filePosition);
+				close_pcm(fppcm);
+				fppcm = open_pcm(gConfig.inputFile);
+				seek_pcm(fppcm, filePosition);
 
 				if (checkForDataCount >= gConfig.timesToCheck)
 				{
@@ -266,7 +283,8 @@ int main(int argc, char** argv) {
 
 
 	endImageFile();
-	close_pcm(fpi);
+	close_peak(fppeak);
+	close_pcm(fppcm);
 
 	debug(LOG_DEBUG, "Complete");
 
@@ -296,6 +314,24 @@ void seek_pcm(FILE *fp, long pos)
 }
 
 void close_pcm(FILE *fp)
+{
+	fclose(fp);
+}
+
+FILE* open_peak(char *filename)
+{
+	FILE *fp;
+	fp = fopen(filename, "wb");
+	if (fp == NULL)
+	{
+		debug(LOG_ALERT, "Can't open output file %s", filename);
+		exit(1);
+	}
+	
+	return fp;
+}
+
+void close_peak(FILE *fp)
 {
 	fclose(fp);
 }
